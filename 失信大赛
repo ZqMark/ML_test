@@ -1,0 +1,281 @@
+#数据导入
+import numpy as np 
+import pandas as pd
+traindata =pd.read_csv('E:/比赛数据/识别失信企业/train.csv')
+train_y=pd.read_csv('E:/比赛数据/识别失信企业/train_label.csv')
+train_y=train_y['Label']
+print(train_y)
+
+
+# print(traindata)
+# train=traindata.drop(columns=['ID','经营期限至','邮政编码','核准日期','行业代码','注销时间',
+#                               '经营期限自','成立日期','经营范围']).values
+train_x=traindata.drop(columns=['ID','经营期限至','邮政编码','核准日期','行业代码','注销时间',
+                              '经营期限自','成立日期','经营范围'])
+print(train_x)
+
+# print(train)
+
+# print(train.info())
+# print(train)
+# train_label1=pd.read_csv('E:/比赛数据/识别失信企业/train_label.csv')
+# train=pd.concat([traindata, train_label1['Label']], axis=1)
+testdata=pd.read_csv('E:/比赛数据/识别失信企业/识别失信企业2/识别失信企业大赛数据/test.csv')
+# test=testdata.drop(columns=['ID','经营期限至','邮政编码','核准日期','行业代码','注销时间',
+#                               '经营期限自','成立日期','经营范围']).values
+test_x=testdata.drop(columns=['ID','经营期限至','邮政编码','核准日期','行业代码','注销时间',
+                              '经营期限自','成立日期','经营范围'])
+print(test_x)
+
+# train_label1=pd.read_csv('E:/比赛数据/识别失信企业/train_label.csv')
+# dataset_Y =train_label1[["Label"]].as_matrix()
+# print(dataset_Y)
+# dataset_Y = np.array(dataset_Y).reshape(len(dataset_Y))
+# print(dataset_Y)
+import lightgbm as lgb  
+import pandas as pd  
+import numpy as np  
+import pickle  
+from sklearn.metrics import roc_auc_score  
+from sklearn.model_selection import train_test_split  
+from sklearn.model_selection import StratifiedKFold, KFold, RepeatedKFold
+from sklearn.model_selection import GridSearchCV
+import time
+import datetime
+from sklearn import metrics
+import matplotlib.pyplot as plt
+import seaborn as sns
+#选取重要特征
+# # 用sklearn.cross_validation进行训练数据集划分，这里训练集和交叉验证集比例为7：3，可以自己根据需要设置  
+# X_train,X_test, y_train, y_test = train_test_split(  
+#     train,  
+#     dataset_Y,  
+#     test_size=0.3,  
+#     random_state=1,  
+# #     stratify=train_label # 这里保证分割后y的比例分布与原数据一致  
+# )  
+# # create dataset for lightgbm  
+# lgb_train = lgb.Dataset(X_train, y_train)  
+# lgb_eval = lgb.Dataset(X_test, y_test, reference=lgb_train)  
+# # specify your configurations as a dict  
+# params = {  
+#     'boosting_type': 'gbdt',  
+#     'objective': 'binary',  
+#     'metric': {'binary_logloss', 'auc'},  #二进制对数损失
+#     'num_leaves': 5,  
+#     'max_depth': 6,  
+#     'min_data_in_leaf': 450,  
+#     'learning_rate': 0.1,  
+#     'feature_fraction': 0.9,  
+#     'bagging_fraction': 0.95,  
+#     'bagging_freq': 5,  
+#     'lambda_l1': 1,    
+#     'lambda_l2': 0.001,  # 越小l2正则程度越高  
+#     'min_gain_to_split': 0.2,  
+#     'verbose': 5,  
+#     'is_unbalance': True  
+# }  
+
+# # train  
+# print('Start training...')  
+# gbm = lgb.train(params,  
+#                 lgb_train,  
+#                 num_boost_round=9578,  
+#                 valid_sets=lgb_eval,  
+# #                 early_stopping_rounds=500)  
+#                )
+
+# print('Start predicting...')  
+# # 导出特征重要性  
+# importance = gbm.feature_importance()  
+# print(importance)
+# print(len(importance))
+# imp =[]
+# i=0
+
+# while i < len(importance):
+#     if importance[i]>0:
+#         imp.append(i)
+#     i=i+1
+# print(imp)
+# #选取特征重要新大于0的特征重组数据集
+# #训练集
+# train=pd.DataFrame(train)
+# print(train)
+# for m in imp:
+#     train.drop(columns=[m],inplace=True)
+# train = train.values
+# print(train)
+# #测试集
+# test=pd.DataFrame(test)
+# print(test)
+# for h in imp:
+#     test.drop(columns=[h],inplace=True)
+# test=test.values
+# print(test)
+
+    
+# # imp=[]
+# # for i in importce:
+# #     if
+# # gbm.feature_importance()
+# # [*zip(gbm.feature_name(),gbm.feature_importance())]
+#K折交叉验证
+n_fold = 10
+folds = KFold(n_splits=n_fold, shuffle=True)
+def train_model(X=train_x.values ,y=train_y.values,featurename=train_x.columns.tolist(), X_test=test_x, params=None, folds=folds, model_type='lgb', plot_feature_importance=False, model=None):
+#     print(X)
+    print(len(X))
+    print(y)
+    oof = np.zeros(len(X))
+    prediction = np.zeros(len(X_test))
+    scores = []
+    feature_importance = pd.DataFrame()
+    for fold_n, (train_index, valid_index) in enumerate(folds.split(X)):
+        print('Fold', fold_n, 'started at', time.ctime())
+        X_train, X_valid = X[train_index], X[valid_index]
+        y_train, y_valid = y[train_index], y[valid_index]
+        if model_type == 'lgb':
+            train_data = lgb.Dataset(data=X_train, label=y_train)
+            valid_data = lgb.Dataset(data=X_valid, label=y_valid)
+            model = lgb.train(params,train_data,num_boost_round=9578,
+                    valid_sets = [train_data, valid_data],verbose_eval=1000,early_stopping_rounds = 200)
+            y_pred_valid = model.predict(X_valid)
+            print(y_pred_valid)
+            y_pred = model.predict(X_test, num_iteration=model.best_iteration)
+            
+        oof[valid_index] = y_pred_valid.reshape(-1,)
+        fpr, tpr, thresholds = metrics.roc_curve(y_valid, y_pred_valid, pos_label=1)
+#         def plot_roc_cur(fpr,tpr,label=None):
+#         #绘制ROC曲线
+#         roc_auc=metrics.auc(fpr, tpr)
+#         plt.subplots(figsize=(7,5.5))
+#         plt.plot(fpr,tpr,color='darkorange',
+#                      linewidth=2,label='ROC curve(area=%0.2f)'
+#                      %roc_auc);
+#         plt.plot([0,1],[0,1],'k--')
+#         plt.axis([0,1,0,1])
+#         plt.xlabel('假正率')
+#         plt.xlabel('召回率')
+#         plt.show()
+        scores.append(metrics.auc(fpr, tpr))   
+        prediction += y_pred 
+        if model_type == 'lgb':
+            # feature importance
+            fold_importance = pd.DataFrame()
+            fold_importance["feature"] = featurename
+            fold_importance["importance"] = model.feature_importance()
+            fold_importance["fold"] = fold_n + 1
+            feature_importance = pd.concat([feature_importance, fold_importance], axis=0)
+    prediction /= n_fold
+    print('CV mean score: {0:.4f}, std: {1:.4f}.'.format(np.mean(scores), np.std(scores)))
+    if model_type == 'lgb':
+        feature_importance["importance"] /= n_fold
+        if plot_feature_importance:
+            cols = feature_importance[["feature", "importance"]].groupby("feature").mean().sort_values(
+                by="importance", ascending=False)[:50].index
+
+            best_features = feature_importance.loc[feature_importance.feature.isin(cols)]
+
+            plt.figure(figsize=(16,26))
+            sns.barplot(x="importance", y="feature", data=best_features.sort_values(by="importance", ascending=False))
+            plt.title('LGB Features (avg over folds)')
+
+            return oof, prediction, feature_importance
+        return oof, prediction
+params = {'num_leaves': 10,
+         'min_data_in_leaf': 42,
+         'objective': 'binary',
+         'max_depth': 18,
+         'learning_rate': 0.01,
+         'boosting': 'gbdt',
+         'bagging_freq': 6,
+         'bagging_fraction': 0.8,
+         'feature_fraction': 0.9,
+         'bagging_seed': 11,
+         'reg_alpha': 2,
+         'reg_lambda': 5,
+         'random_state': 42,
+         'metric': 'auc',
+         'verbosity': -1,
+         'subsample': 0.9,
+         'min_gain_to_split': 0.01077313523861969,
+         'min_child_weight': 19.428902804238373,
+         'num_threads': 4}
+oof_lgb, prediction_lgb, feature_importance_lgb = train_model(params=params, model_type='lgb',plot_feature_importance=True)
+print(prediction_lgb)
+b=pd.read_csv('E:/比赛数据/submission.csv')
+submission = pd.DataFrame({"ID":b['ID'].values })
+submission["Label"] = prediction_lgb
+submission.to_csv("E:/比赛数据/sub9.csv",index=None)
+
+# submission = pd.DataFrame({
+#         "ID":b['ID'].values,
+#         "Label": a[0].values
+#     })
+# print(submission)
+# submission.to_csv("E:/比赛数据/sub7.csv",index=None)
+# # 用sklearn.cross_validation进行训练数据集划分，这里训练集和交叉验证集比例为7：3，可以自己根据需要设置  
+# X_train,X_test, y_train, y_test = train_test_split(  
+#     train,  
+#     dataset_Y,  
+#     test_size=0.3,  
+#     random_state=1,  
+# #     stratify=train_label # 这里保证分割后y的比例分布与原数据一致  
+# )  
+# # create dataset for lightgbm  
+# lgb_train = lgb.Dataset(X_train, y_train)  
+# lgb_eval = lgb.Dataset(X_test, y_test, reference=lgb_train)  
+# # specify your configurations as a dict  
+# params = {  
+#     'boosting_type': 'gbdt',  
+#     'objective': 'binary',  
+#     'metric': {'binary_logloss', 'auc'},  #二进制对数损失
+#     'num_leaves': 5,  
+#     'max_depth': 6,  
+#     'min_data_in_leaf': 450,  
+#     'learning_rate': 0.1,  
+#     'feature_fraction': 0.9,  
+#     'bagging_fraction': 0.95,  
+#     'bagging_freq': 5,  
+#     'lambda_l1': 1,    
+#     'lambda_l2': 0.001,  # 越小l2正则程度越高  
+#     'min_gain_to_split': 0.2,  
+#     'verbose': 5,  
+#     'is_unbalance': True  
+# }  
+
+# # train  
+# print('Start training...')  
+# gbm = lgb.train(params,  
+#                 lgb_train,  
+#                 num_boost_round=9578,  
+#                 valid_sets=lgb_eval,  
+# #                 early_stopping_rounds=500)  
+#                )
+
+# print('Start predicting...')  
+# preds = gbm.predict(test, num_iteration=gbm.best_iteration)  # 输出的是概率结果  
+# preds
+
+# result_label=[]
+# threshold = 0.5  
+# for pred in preds:  
+#     result = 1 if pred > threshold else 0
+#     result_label.append(result)
+# # print(result_label)
+# a=pd.DataFrame(result_label)
+# # print(a)
+# # print(a[0].values)
+# # print(a.index)
+# b=pd.read_csv('E:/比赛数据/submission.csv')
+# # print(b.describe)
+# # print(b['ID'].values)
+
+# submission = pd.DataFrame({
+#         "ID":b['ID'].values,
+#         "Label": a[0].values
+#     })
+# print(submission)
+# submission.to_csv("E:/比赛数据/sub7.csv",index=None)
+            
